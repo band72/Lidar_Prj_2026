@@ -1,0 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Distribution / packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+
+# Large LiDAR point clouds and heavy geospatial data (>100MB)
+*.las
+*.laz
+*.LAS
+*.LAZ
+inputs/*.las
+inputs/*.laz
+inputs/*.LAS
+inputs/*.LAZ
+
+# Processed outputs and rasters
+outputs/
+*.tif
+*.tiff
+*.geotiff
+
+# Temporary OS / IDE files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

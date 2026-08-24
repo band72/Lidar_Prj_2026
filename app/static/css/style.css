@@ -1,0 +1,77 @@
+/* Modern Styling for LiDAR Contour Studio */
+
+html, body {
+    height: 100%;
+    height: 100dvh;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.6);
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(51, 65, 85, 0.8);
+    border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(6, 182, 212, 0.8);
+}
+
+/* Leaflet Container Adjustments */
+.leaflet-container {
+    background: #020617 !important;
+    font-family: inherit !important;
+    height: 100% !important;
+    width: 100% !important;
+}
+
+/* Custom Leaflet Tooltip for Contours */
+.contour-tooltip {
+    background: rgba(15, 23, 42, 0.92) !important;
+    border: 1px solid rgba(6, 182, 212, 0.6) !important;
+    color: #38bdf8 !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
+    border-radius: 6px !important;
+    padding: 3px 6px !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important;
+}
+.contour-tooltip::before {
+    border-top-color: rgba(15, 23, 42, 0.92) !important;
+}
+
+/* Index Contour Tooltip */
+.index-contour-tooltip {
+    background: rgba(15, 23, 42, 0.95) !important;
+    border: 1.5px solid #f59e0b !important;
+    color: #fbbf24 !important;
+    font-weight: 800 !important;
+}
+
+/* Smooth Transitions */
+button, input, select {
+    transition: all 0.15s ease-in-out;
+}
+
+/* Pulse animation for active processing */
+@keyframes glow-pulse {
+    0%, 100% {
+        box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(6, 182, 212, 0.8);
+    }
+}
+
+.processing-active {
+    animation: glow-pulse 2s infinite ease-in-out;
+}

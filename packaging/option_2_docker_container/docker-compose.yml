@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  lidar-contour-studio:
+    build:
+      context: ../..
+      dockerfile: packaging/option_2_docker_container/Dockerfile
+    container_name: lidar_contour_studio
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../..:/app/data
+      - ../../outputs:/app/outputs
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000

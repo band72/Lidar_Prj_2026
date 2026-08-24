@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LiDAR Contour Studio • Cross-Platform LiDAR Engine</title>
+    
+    <!-- PWA Manifest & Mobile Tags -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfeff',
+                            100: '#cffafe',
+                            400: '#22d3ee',
+                            500: '#06b6d4',
+                            600: '#0891b2',
+                            900: '#164e63',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Leaflet Draw -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/static/css/style.css?v=2.2">
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen h-[100dvh] flex flex-col font-sans antialiased overflow-hidden select-none">
+
+    <!-- Top App Navigation Header -->
+    <header class="h-14 bg-slate-900/90 backdrop-blur border-b border-slate-800 px-4 flex items-center justify-between z-30 shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-600 to-emerald-400 flex items-center justify-center shadow-md shadow-cyan-500/20">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+                    LiDAR Contour Studio
+                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">v1.0 Pro</span>
+                </h1>
+                <p class="text-[10px] text-slate-400 hidden sm:block">PDAL & Native Cross-Platform Point Cloud Surface Generator</p>
+            </div>
+        </div>
+
+        <!-- Center Active Device & File Status -->
+        <div class="hidden md:flex items-center gap-3">
+            <div id="topFileBadge" class="text-xs font-mono px-3 py-1 bg-slate-800/80 border border-slate-700 rounded-full text-slate-300 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                <span id="topFileName">No File Selected</span>
+            </div>
+        </div>
+
+        <!-- Right Action Tabs / Buttons -->
+        <div class="flex items-center gap-2">
+            <!-- Mobile / Tablet Tab Switcher -->
+            <div class="flex md:hidden bg-slate-800 rounded-lg p-0.5 border border-slate-700 text-xs">
+                <button id="tabBtnSettings" onclick="switchMobileTab('settings')" class="px-3 py-1 rounded-md bg-cyan-600 text-white font-medium">Controls</button>
+                <button id="tabBtnMap" onclick="switchMobileTab('map')" class="px-3 py-1 rounded-md text-slate-300 font-medium">Map</button>
+                <button id="tabBtnReport" onclick="switchMobileTab('report')" class="px-3 py-1 rounded-md text-slate-300 font-medium">Report</button>
+            </div>
+
+            <button id="btnViewReportModal" onclick="openReportModal()" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium rounded-lg transition-all">
+                <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                Report
+            </button>
+
+            <button id="btnOpenDownloadsModal" onclick="openDownloadsModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg shadow-lg shadow-cyan-600/30 transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <span class="hidden sm:inline">Export</span> Deliverables
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- Left Sidebar: Controls & Settings Panel -->
+        <aside id="sidebarPanel" class="w-full md:w-[480px] lg:w-[500px] bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 z-20 h-full overflow-hidden">
+            
+            <!-- Scrollable Settings Body -->
+            <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+
+                <!-- Step 1: Input Point Cloud Selection & Open File Path -->
+                <section class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                            <span class="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px]">1</span>
+                            Input LiDAR Dataset (.las / .laz)
+                        </label>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="openFileBrowserModal('inputFilePathManual', 'file')" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-600/30 transition-all">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path></svg>
+                                <span>Browse & Search</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <!-- Detected Workspace Point Clouds Dropdown -->
+                        <div>
+                            <select id="inputFileSelect" onchange="onFileSelected(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono">
+                                <option value="">Scanning workspace for LAS/LAZ files...</option>
+                            </select>
+                        </div>
+
+                        <!-- Absolute File Path Input Field with Inspect -->
+                        <div class="flex gap-1.5">
+                            <input id="inputFilePathManual" type="text" placeholder="Enter absolute file path or click Browse..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono">
+                            <button onclick="inspectManualPath()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold rounded-lg transition-all">Inspect</button>
+                        </div>
+                    </div>
+
+                    <!-- Dataset Metadata Box (Auto-Populated) -->
+                    <div id="fileMetaBox" class="hidden bg-slate-900/90 border border-slate-800/80 rounded-lg p-3 text-xs space-y-2 font-mono">
+                        <div class="flex justify-between text-slate-400">
+                            <span>Total Points:</span>
+                            <span id="metaTotalPoints" class="text-cyan-300 font-bold">-</span>
+                        </div>
+                        <div class="flex justify-between text-slate-400">
+                            <span>Coordinate Reference:</span>
+                            <span id="metaCrsName" class="text-slate-200 truncate max-w-[200px]" title="">-</span>
+                        </div>
+                        <div class="flex justify-between text-slate-400">
+                            <span>Elevation Extent (Z):</span>
+                            <span id="metaZRange" class="text-emerald-400">-</span>
+                        </div>
+                        <div class="flex justify-between text-slate-400">
+                            <span>Point Density:</span>
+                            <span id="metaDensity" class="text-slate-200">-</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Step 2: Output Destination & Path Selection -->
+                <section class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                            <span class="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px]">2</span>
+                            Output Destination Folder
+                        </label>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="setTimestampOutputFolder()" title="Create a unique timestamped output folder" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded text-xs font-medium flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span>Timestamp</span>
+                            </button>
+                            <button onclick="openFileBrowserModal('outputDirPathInput', 'folder')" class="px-2.5 py-1 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/40 rounded text-xs font-semibold flex items-center gap-1 transition-all">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                                <span>Browse Folder</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex gap-1.5">
+                            <input id="outputDirPathInput" type="text" placeholder="outputs/contours_run" value="outputs/contours_run" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono">
+                            <button onclick="openSystemFolderInExplorer()" title="Open this folder in your OS File Manager" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-medium flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                <span class="hidden sm:inline">Open Folder</span>
+                            </button>
+                        </div>
+                        <p class="text-[10px] text-slate-500">Contours, DEM surface, Shapefiles, DXF, and QA Report will be generated in this directory.</p>
+                    </div>
+                </section>
+
+                <!-- Step 3: Units & Contouring Parameters -->
+                <section class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <label class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px]">3</span>
+                        Units & Contour Intervals
+                    </label>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1">Working Units</label>
+                            <select id="unitsSelect" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+                                <option value="ftUS" selected>US Survey Feet (ftUS)</option>
+                                <option value="m">Meters (m)</option>
+                                <option value="ft">International Feet (ft)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1">Contour Interval</label>
+                            <div class="flex items-center gap-1">
+                                <input id="contourIntervalInput" type="number" step="0.5" min="0.1" value="2.0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono">
+                                <span id="contourIntervalUnitLabel" class="text-xs text-slate-400 font-mono">ft</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1">Index Contour Multiplier</label>
+                            <select id="indexMultiplierSelect" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+                                <option value="5" selected>Every 5th (e.g. 10 ft Index)</option>
+                                <option value="10">Every 10th (e.g. 20 ft Index)</option>
+                                <option value="4">Every 4th</option>
+                                <option value="2">Every 2nd</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1">DEM Grid Resolution</label>
+                            <div class="flex items-center gap-1">
+                                <input id="cellSizeInput" type="number" step="0.5" min="0.2" value="2.0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono">
+                                <span id="cellUnitLabel" class="text-xs text-slate-400 font-mono">ft</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Step 4: Geographic Bounding Box (Lat/Lon) -->
+                <section class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                            <span class="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px]">4</span>
+                            Bounding Area (WGS84 Lat / Lon)
+                        </label>
+                        <div class="flex gap-1.5">
+                            <button onclick="startMapDrawBox()" class="px-2 py-0.5 bg-cyan-900/60 hover:bg-cyan-800 text-cyan-300 border border-cyan-700/50 rounded text-[11px] font-medium flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                                Draw ROI
+                            </button>
+                            <button onclick="resetBoundingBoxToFull()" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px]">Full</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                            <label class="block text-[10px] text-slate-500">Min Latitude (South)</label>
+                            <input id="bboxMinLat" type="number" step="0.00001" placeholder="e.g. 27.95000" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono focus:border-cyan-500">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500">Max Latitude (North)</label>
+                            <input id="bboxMaxLat" type="number" step="0.00001" placeholder="e.g. 27.96500" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono focus:border-cyan-500">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500">Min Longitude (West)</label>
+                            <input id="bboxMinLon" type="number" step="0.00001" placeholder="e.g. -82.46500" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono focus:border-cyan-500">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-500">Max Longitude (East)</label>
+                            <input id="bboxMaxLon" type="number" step="0.00001" placeholder="e.g. -82.45000" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono focus:border-cyan-500">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Step 5: Elevation Cutoff & Point Filtering -->
+                <section class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <label class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px]">5</span>
+                        Elevation Cutoffs & Classification Filter
+                    </label>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1">Min Elevation (Z Min)</label>
+                            <input id="elevMinInput" type="number" step="0.1" placeholder="No Min Cutoff" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1">Max Elevation (Z Max)</label>
+                            <input id="elevMaxInput" type="number" step="0.1" placeholder="No Max Cutoff" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono">
+                        </div>
+                    </div>
+
+                    <!-- ASPRS Classification Checkboxes -->
+                    <div class="space-y-1.5 pt-1">
+                        <label class="block text-[11px] text-slate-400">Point Classes to Extract:</label>
+                        <div class="grid grid-cols-2 gap-1.5 text-xs">
+                            <label class="flex items-center gap-2 p-1.5 bg-slate-900 rounded border border-slate-800 hover:border-slate-700 cursor-pointer">
+                                <input type="checkbox" id="clsGround" value="2" checked class="accent-cyan-500">
+                                <span>Ground (Class 2)</span>
+                            </label>
+                            <label class="flex items-center gap-2 p-1.5 bg-slate-900 rounded border border-slate-800 hover:border-slate-700 cursor-pointer">
+                                <input type="checkbox" id="clsKeypoint" value="8" checked class="accent-cyan-500">
+                                <span>Model Key-point (8)</span>
+                            </label>
+                            <label class="flex items-center gap-2 p-1.5 bg-slate-900 rounded border border-slate-800 hover:border-slate-700 cursor-pointer">
+                                <input type="checkbox" id="clsUnclassified" value="1" class="accent-cyan-500">
+                                <span>Unclassified (1)</span>
+                            </label>
+                            <label class="flex items-center gap-2 p-1.5 bg-slate-900 rounded border border-slate-800 hover:border-slate-700 cursor-pointer">
+                                <input type="checkbox" id="clsWater" value="9" class="accent-cyan-500">
+                                <span>Water Surface (9)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Advanced LiDAR Filters -->
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+                            <input type="checkbox" id="chkOutlierRemoval" checked class="accent-cyan-500">
+                            <span>Statistical Outlier Filter (SOR)</span>
+                        </label>
+                        <span class="text-[10px] text-slate-500">Eliminates high/low noise</span>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- Pinned Bottom-Left Action & Progress Footer (Always Visible) -->
+            <div class="p-3.5 sm:p-4 bg-slate-950/95 backdrop-blur border-t border-slate-800 shrink-0 space-y-3 shadow-2xl">
+                
+                <!-- Action Button: Start Processing -->
+                <div>
+                    <button id="btnStartProcess" onclick="startLiDARProcessing()" class="w-full py-3.5 bg-gradient-to-r from-cyan-600 via-cyan-500 to-emerald-500 hover:from-cyan-500 hover:to-emerald-400 text-white font-bold text-sm rounded-xl shadow-xl shadow-cyan-600/30 transition-all flex items-center justify-center gap-2 active:scale-[0.99]">
+                        <svg class="w-5 h-5 text-white animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                        <span>Generate Topographic Contours</span>
+                    </button>
+                </div>
+
+                <!-- Live Progress Panel -->
+                <div id="progressContainer" class="hidden bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2.5">
+                    <div class="flex justify-between items-center text-xs">
+                        <span id="progressStatusText" class="font-medium text-cyan-300 flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 animate-spin text-cyan-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                            Processing LiDAR points...
+                        </span>
+                        <span id="progressPercentage" class="font-mono font-bold text-slate-200">0%</span>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                        <div id="progressBarFill" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+
+                    <!-- Live Log Drawer -->
+                    <div id="progressLogConsole" class="bg-slate-950 border border-slate-800/80 rounded p-2 font-mono text-[10px] text-slate-400 h-20 overflow-y-auto space-y-0.5">
+                        <div>Ready.</div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Right Main View: Interactive Geospatial Leaflet Map -->
+        <main id="mapContainer" class="flex-1 h-full relative z-10 bg-slate-950">
+            <div id="leafletMap" class="w-full h-full"></div>
+
+            <!-- Floating Map Overlay Controls -->
+            <div class="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
+                <!-- Basemap Picker -->
+                <div class="bg-slate-900/90 backdrop-blur border border-slate-700 rounded-lg p-1.5 shadow-xl flex gap-1 text-xs">
+                    <button onclick="setBaseLayer('satellite')" id="btnLayerSat" class="px-2.5 py-1 rounded bg-cyan-600 text-white font-medium">Satellite</button>
+                    <button onclick="setBaseLayer('osm')" id="btnLayerOsm" class="px-2.5 py-1 rounded text-slate-300 font-medium">Street</button>
+                    <button onclick="setBaseLayer('topo')" id="btnLayerTopo" class="px-2.5 py-1 rounded text-slate-300 font-medium">Topo</button>
+                </div>
+
+                <!-- Contour Layer Toggle & Legend -->
+                <div id="mapLegendCard" class="hidden bg-slate-900/95 backdrop-blur border border-slate-700 rounded-xl p-3 shadow-2xl space-y-2 text-xs w-48">
+                    <div class="font-bold text-slate-200 flex items-center justify-between border-b border-slate-800 pb-1.5">
+                        <span>Contour Legend</span>
+                        <input type="checkbox" id="chkToggleContours" checked onchange="toggleContourLayer(this.checked)" class="accent-cyan-500">
+                    </div>
+                    <div class="space-y-1.5 text-[11px]">
+                        <div class="flex items-center gap-2">
+                            <span class="w-4 h-1 bg-amber-400 rounded"></span>
+                            <span class="text-slate-300">Index (Major)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-4 h-0.5 bg-cyan-400 rounded"></span>
+                            <span class="text-slate-300">Intermediate</span>
+                        </div>
+                    </div>
+                    <div class="pt-1 border-t border-slate-800 text-[10px] text-slate-400">
+                        Elevation in <span id="legendUnitLabel" class="font-mono text-cyan-300">ftUS</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floating Active ROI Stats Pill -->
+            <div id="mapRoiPill" class="hidden absolute bottom-4 left-4 z-[1000] bg-slate-900/90 backdrop-blur border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 shadow-xl flex items-center gap-2 font-mono">
+                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                <span id="mapRoiText">ROI Active</span>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- Complete Linux & Cross-Platform Filesystem Explorer + Uploader + Search Modal -->
+    <div id="fileBrowserModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-5">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full flex flex-col h-[88vh] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            
+            <!-- Modal Header -->
+            <div class="h-14 bg-slate-950 border-b border-slate-800 px-5 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-cyan-600/20 text-cyan-400 flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                    </div>
+                    <div>
+                        <h3 id="fileBrowserModalTitle" class="text-sm font-bold text-white">Filesystem Explorer & Uploader</h3>
+                        <p id="fileBrowserModalSubtitle" class="text-[11px] text-slate-400">Browse directories, search files, or upload datasets</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <!-- Integrated Uploader Trigger -->
+                    <input type="file" id="modalUploadInput" accept=".las,.laz" onchange="handleModalFileUpload(this.files)" class="hidden">
+                    <button onclick="document.getElementById('modalUploadInput').click()" title="Upload a LAS/LAZ point cloud into the current directory" class="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        <span>Upload File</span>
+                    </button>
+
+                    <button onclick="promptCreateNewFolder()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 flex items-center gap-1.5 font-semibold transition-all">
+                        <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        <span>New Folder</span>
+                    </button>
+                    
+                    <button onclick="closeFileBrowserModal()" class="text-slate-400 hover:text-white p-1 ml-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Sub-Navigation Bar: Folder Explorer vs Discovered Datasets -->
+            <div class="bg-slate-950 px-4 py-2 border-b border-slate-800 flex items-center justify-between text-xs">
+                <div class="flex items-center gap-1.5 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+                    <button id="btnTabExplorer" onclick="switchBrowserModalTab('explorer')" class="px-3 py-1 rounded-md bg-cyan-600 text-white font-semibold flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                        <span>Folder Explorer</span>
+                    </button>
+                    <button id="btnTabDiscovered" onclick="switchBrowserModalTab('discovered')" class="px-3 py-1 rounded-md text-slate-400 hover:text-white font-semibold flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <span>Discovered LiDAR Datasets</span>
+                        <span id="discoveredCountBadge" class="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[10px]">...</span>
+                    </button>
+                </div>
+                <div class="text-[11px] text-slate-500 font-mono hidden md:block">
+                    Linux Host: /home/artwalk
+                </div>
+            </div>
+
+            <!-- Path Navigation & Live Search Bar (Active in Explorer tab) -->
+            <div id="browserPathAndSearchBar" class="bg-slate-900 px-4 py-2.5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center gap-2.5 text-xs">
+                
+                <!-- Path Control -->
+                <div class="flex items-center gap-1.5 flex-1 min-w-0">
+                    <button onclick="navigateBrowserUp()" id="btnBrowserUp" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg flex items-center gap-1 shrink-0 font-medium border border-slate-700">
+                        <svg class="w-3.5 h-3.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                        <span>Up</span>
+                    </button>
+
+                    <!-- Editable Path Input + Go -->
+                    <div class="flex-1 flex gap-1 min-w-0">
+                        <input id="browserPathBarInput" type="text" onkeydown="if(event.key==='Enter') loadBrowserDirectory(this.value)" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-cyan-500 truncate">
+                        <button onclick="loadBrowserDirectory(document.getElementById('browserPathBarInput').value)" class="px-3 py-1.5 bg-slate-800 hover:bg-cyan-600 text-slate-200 text-xs font-bold rounded-lg border border-slate-700 transition-colors">Go</button>
+                    </div>
+                </div>
+
+                <!-- Instant Search / Filter & Dotfiles Toggle -->
+                <div class="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
+                    <div class="relative flex items-center">
+                        <svg class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        <input id="browserSearchInput" oninput="onBrowserSearchInput(this.value)" type="text" placeholder="Search files & folders..." class="w-44 sm:w-56 bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+                    </div>
+                    <label class="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer select-none">
+                        <input type="checkbox" id="browserShowHiddenChk" onchange="toggleBrowserHiddenFiles(this.checked)" class="accent-cyan-500">
+                        <span>Hidden (dotfiles)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Breadcrumbs Sub-bar -->
+            <div id="browserBreadcrumbsContainer" class="bg-slate-950/90 px-4 py-1.5 border-b border-slate-800/80 flex items-center gap-1 overflow-x-auto text-xs font-mono text-slate-400 shrink-0">
+                <!-- Dynamic Chips -->
+            </div>
+
+            <!-- Upload Progress Banner (Dynamic) -->
+            <div id="modalUploadProgressBanner" class="hidden bg-cyan-950/70 border-b border-cyan-800 px-4 py-2 flex items-center justify-between text-xs text-cyan-200 font-mono">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 animate-spin text-cyan-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                    <span id="modalUploadProgressText">Uploading file (0%)...</span>
+                </div>
+                <div class="w-32 bg-slate-800 rounded-full h-2 overflow-hidden">
+                    <div id="modalUploadProgressBar" class="bg-cyan-400 h-2 transition-all duration-200" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Main Dual-Pane Browser Container (Explorer Tab View) -->
+            <div id="viewExplorerTab" class="flex-1 flex overflow-hidden">
+                
+                <!-- Left Sidebar: Quick System Locations -->
+                <div class="w-52 bg-slate-950/70 border-r border-slate-800 p-3 space-y-1 overflow-y-auto hidden sm:block shrink-0 text-xs">
+                    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 py-1">Quick Places (Linux)</div>
+                    <div id="browserQuickLocationsList" class="space-y-0.5">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Right Pane: Directory & Files Explorer List -->
+                <div class="flex-1 flex flex-col overflow-hidden bg-slate-900/40">
+                    <div id="browserItemList" class="flex-1 p-3 sm:p-4 overflow-y-auto space-y-2 text-xs">
+                        <div class="text-slate-400 py-12 text-center">Loading contents...</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Discovered Datasets View (Discovered Tab View) -->
+            <div id="viewDiscoveredTab" class="hidden flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 bg-slate-900/40">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <div>
+                        <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                            Discovered LiDAR Datasets on System
+                        </h4>
+                        <p class="text-xs text-slate-400">Automatically scanned across Project, ~/Downloads, and ~/Documents</p>
+                    </div>
+                    <button onclick="loadDiscoveredDatasets()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded text-xs flex items-center gap-1 font-medium">
+                        <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        Rescan
+                    </button>
+                </div>
+                <div id="discoveredDatasetsList" class="space-y-2">
+                    <div class="text-slate-400 py-12 text-center">Scanning for LAS/LAZ point clouds...</div>
+                </div>
+            </div>
+
+            <!-- Modal Footer / Status / Confirmation -->
+            <div class="h-14 bg-slate-950 border-t border-slate-800 px-5 flex items-center justify-between shrink-0">
+                <div id="browserStatusBar" class="text-xs text-slate-400 font-mono truncate max-w-[300px] sm:max-w-md">
+                    Ready.
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="closeFileBrowserModal()" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg">Cancel</button>
+                    <button id="btnSelectCurrentFolder" onclick="confirmFolderSelection()" class="hidden px-4 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg shadow-lg">
+                        Select Current Folder
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Deliverables & Exports Center -->
+    <div id="downloadsModal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-cyan-600/20 text-cyan-400 flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white">Generated Deliverables & Exports</h3>
+                        <p class="text-xs text-slate-400">Ready for Civil 3D, ArcGIS, QGIS, AutoCAD, and Engineering QA</p>
+                    </div>
+                </div>
+                <button onclick="closeDownloadsModal()" class="text-slate-400 hover:text-white p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <!-- Deliverable Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="deliverablesGrid">
+                <!-- Shapefile Card -->
+                <a id="btnDlShp" href="#" target="_blank" class="p-3.5 bg-slate-950 border border-slate-800 hover:border-cyan-500 rounded-xl flex items-center justify-between group transition-all">
+                    <div>
+                        <div class="text-xs font-bold text-white group-hover:text-cyan-400">ESRI Shapefile (ZIP)</div>
+                        <div class="text-[11px] text-slate-400">.shp, .shx, .dbf, .prj package</div>
+                    </div>
+                    <span class="text-cyan-400 font-mono text-xs">DL &darr;</span>
+                </a>
+
+                <!-- AutoCAD DXF Card -->
+                <a id="btnDlDxf" href="#" target="_blank" class="p-3.5 bg-slate-950 border border-slate-800 hover:border-cyan-500 rounded-xl flex items-center justify-between group transition-all">
+                    <div>
+                        <div class="text-xs font-bold text-white group-hover:text-cyan-400">AutoCAD 3D DXF</div>
+                        <div class="text-[11px] text-slate-400">Layered 3D polyline contours</div>
+                    </div>
+                    <span class="text-cyan-400 font-mono text-xs">DL &darr;</span>
+                </a>
+
+                <!-- GeoJSON Card -->
+                <a id="btnDlGeojson" href="#" target="_blank" class="p-3.5 bg-slate-950 border border-slate-800 hover:border-cyan-500 rounded-xl flex items-center justify-between group transition-all">
+                    <div>
+                        <div class="text-xs font-bold text-white group-hover:text-cyan-400">Vector GeoJSON</div>
+                        <div class="text-[11px] text-slate-400">Native CRS with elevation props</div>
+                    </div>
+                    <span class="text-cyan-400 font-mono text-xs">DL &darr;</span>
+                </a>
+
+                <!-- GeoTIFF DEM Card -->
+                <a id="btnDlDem" href="#" target="_blank" class="p-3.5 bg-slate-950 border border-slate-800 hover:border-cyan-500 rounded-xl flex items-center justify-between group transition-all">
+                    <div>
+                        <div class="text-xs font-bold text-white group-hover:text-cyan-400">GeoTIFF DEM Surface</div>
+                        <div class="text-[11px] text-slate-400">High-resolution elevation raster</div>
+                    </div>
+                    <span class="text-cyan-400 font-mono text-xs">DL &darr;</span>
+                </a>
+
+                <!-- Engineering Report Card -->
+                <a id="btnDlReport" href="#" target="_blank" class="p-3.5 bg-slate-950 border border-slate-800 hover:border-cyan-500 rounded-xl flex items-center justify-between group transition-all sm:col-span-2">
+                    <div>
+                        <div class="text-xs font-bold text-white group-hover:text-cyan-400">QA/QC Engineering Report (HTML)</div>
+                        <div class="text-[11px] text-slate-400">Full metadata, point distribution & limitations</div>
+                    </div>
+                    <span class="text-cyan-400 font-mono text-xs">View &rarr;</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: In-App Engineering Report Viewer -->
+    <div id="reportModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-6">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="h-12 bg-slate-950 border-b border-slate-800 px-4 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                    <h3 class="text-sm font-bold text-white">Engineering Quality & Limitations Report</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="printReportIframe()" class="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-semibold">Print / PDF</button>
+                    <button onclick="closeReportModal()" class="text-slate-400 hover:text-white p-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            </div>
+            <iframe id="reportIframe" src="about:blank" class="w-full flex-1 bg-slate-950 border-0"></iframe>
+        </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script src="/static/js/app.js?v=2.2"></script>
+</body>
+</html>
