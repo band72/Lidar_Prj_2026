@@ -39,3 +39,9 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Deliverables archives (>100MB)
+deliverables/linux/*.tar.gz
+deliverables/linux/*.zip
+deliverables/windows/*.zip
+deliverables/windows/*.exe
