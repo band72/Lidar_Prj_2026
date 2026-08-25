@@ -7,9 +7,10 @@ name = "lidar-contour-studio"
 version = "1.0.0"
 description = "Professional Cross-Platform LiDAR Point Cloud Processing, DEM Gridding, Contour Extraction, and Engineering Reporting Engine"
 readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.9"
 authors = [
-    { name = "LiDAR Engineering Team" }
+    { name = "band72" }
 ]
 dependencies = [
     "fastapi>=0.110.0",

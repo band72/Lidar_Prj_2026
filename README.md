@@ -64,3 +64,10 @@ When a processing job completes, the following files are produced in `outputs/<j
 - `report.html` - Professional engineering quality assurance report.
 - `report.md` & `report.json` - Markdown and JSON metadata logs.
 - `pdal_pipeline.json` - Reusable PDAL pipeline specification.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE) © 2026 band72.
+
